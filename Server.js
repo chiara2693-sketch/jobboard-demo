@@ -72,7 +72,7 @@ app.get("/applications/:jobId", (req, res) => {
 });
 
 // Server
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(`✅ Server avviato su http://localhost:${PORT}`);
+  console.log(`✅ Server avviato sulla porta ${port}`);
 });
