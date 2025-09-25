@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
-
 import { MessageCircle, Phone } from "lucide-react";
 
+// Base URL of backend API deployed on Render
 const API_URL = "https://jobboard-demo.onrender.com";
 
 // Utenti demo (login locale)
@@ -19,7 +19,7 @@ export default function App() {
   const [chatCandidate, setChatCandidate] = useState(null);
   const [messages, setMessages] = useState({});
 
-  // 🔄 Carica le offerte dal backend e inserisce default se vuoto
+  // Carica le offerte dal backend e inserisce default se vuoto
   useEffect(() => {
     const fetchJobs = async () => {
       let res = await fetch(`${API_URL}/jobs`);
@@ -42,14 +42,12 @@ export default function App() {
         res = await fetch(`${API_URL}/jobs`);
         data = await res.json();
       }
-
       setJobs(data);
     };
-
     fetchJobs();
   }, []);
 
-  // Login
+  // Login utente demo
   const handleLogin = (e) => {
     e.preventDefault();
     const email = e.target.email.value;
@@ -63,7 +61,7 @@ export default function App() {
     }
   };
 
-  // Candidatura
+  // Invia candidatura per un offerta
   const applyJob = async (jobId) => {
     await fetch(`${API_URL}/apply`, {
       method: "POST",
@@ -77,27 +75,73 @@ export default function App() {
     alert("✅ Candidatura inviata!");
   };
 
-  // Carica candidature per un’offerta
+  // Carica tutte le candidature per una determinata offerta
   const loadApplications = async (jobId) => {
     const res = await fetch(`${API_URL}/applications/${jobId}`);
     return await res.json();
   };
 
-  // Chat finta
-  const sendMessage = (email, text) => {
+  /*
+   * Funzioni per salvare e caricare i messaggi dal backend.
+   * saveMessage inserisce un nuovo messaggio nel DB; fetchMessagesFromServer
+   * restituisce la lista dei messaggi tra l'azienda e il candidato corrente.
+   */
+  const saveMessage = async (jobId, receiverEmail, text) => {
+    await fetch(`${API_URL}/messages`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jobId,
+        senderEmail: user.email,
+        receiverEmail,
+        text,
+      }),
+    });
+  };
+
+  const fetchMessagesFromServer = async (jobId, email) => {
+    const res = await fetch(`${API_URL}/messages/${jobId}/${email}`);
+    return await res.json();
+  };
+
+  // Invia un messaggio (salva su DB e aggiorna stato locale)
+  const sendMessage = async (jobId, email, text) => {
+    // Persisti il messaggio sul server
+    await saveMessage(jobId, email, text);
+    // Aggiorna lo stato locale per mostrare subito il messaggio
     setMessages((prev) => ({
       ...prev,
       [email]: [...(prev[email] || []), { from: user.email, text }],
     }));
   };
 
-  // Chiamata finta
+  // Simula l'avvio di una chiamata (placeholder)
   const startCall = (candidate) => {
     alert(`📞 Simulazione chiamata con ${candidate.candidateName || candidate.name}`);
   };
 
-  // ------------------ UI ------------------
+  /*
+   * Quando si seleziona un candidato per chattare, carica la cronologia dei messaggi
+   * dal server e li salva nello stato locale. Viene eseguito ogni volta che
+   * chatCandidate cambia.
+   */
+  useEffect(() => {
+    const loadChatHistory = async () => {
+      if (chatCandidate) {
+        const msgs = await fetchMessagesFromServer(chatCandidate.jobId, chatCandidate.candidateEmail);
+        setMessages((prev) => ({
+          ...prev,
+          [chatCandidate.candidateEmail]: msgs.map((m) => ({
+            from: m.senderEmail,
+            text: m.text,
+          })),
+        }));
+      }
+    };
+    loadChatHistory();
+  }, [chatCandidate]);
 
+  // ---------------- UI ----------------
   if (!user) {
     return (
       <div style={{ padding: "2rem" }}>
@@ -130,7 +174,9 @@ export default function App() {
         {jobs.map((job) => (
           <div key={job.id} style={{ border: "1px solid #ccc", margin: "1rem", padding: "1rem" }}>
             <h4>{job.title}</h4>
-            <p>{job.company} – {job.location} ({job.contract})</p>
+            <p>
+              {job.company} – {job.location} ({job.contract})
+            </p>
             <button onClick={() => applyJob(job.id)}>Candidati</button>
           </div>
         ))}
@@ -183,13 +229,13 @@ function CompanyJob({ job, loadApplications, setChatCandidate, startCall, chatCa
       <ul>
         {applications.map((c) => (
           <li key={c.id}>
-            {c.candidateName} ({c.candidateEmail}){" "}
+            {c.candidateName} ({c.candidateEmail}){' '}
             <MessageCircle
-              style={{ cursor: "pointer", marginLeft: "10px" }}
+              style={{ cursor: 'pointer', marginLeft: '10px' }}
               onClick={() => setChatCandidate({ ...c, jobId: job.id })}
             />
             <Phone
-              style={{ cursor: "pointer", marginLeft: "10px" }}
+              style={{ cursor: 'pointer', marginLeft: '10px' }}
               onClick={() => startCall({ ...c, jobId: job.id })}
             />
           </li>
@@ -197,18 +243,21 @@ function CompanyJob({ job, loadApplications, setChatCandidate, startCall, chatCa
       </ul>
 
       {chatCandidate && chatCandidate.jobId === job.id && (
-        <div style={{ border: "1px solid #444", padding: "1rem", marginTop: "1rem" }}>
+        <div style={{ border: '1px solid #444', padding: '1rem', marginTop: '1rem' }}>
           <h4>Chat con {chatCandidate.candidateName}</h4>
-          <div style={{ minHeight: "100px", border: "1px solid #ccc", padding: "0.5rem" }}>
+          <div style={{ minHeight: '100px', border: '1px solid #ccc', padding: '0.5rem' }}>
             {(messages[chatCandidate.candidateEmail] || []).map((m, i) => (
-              <p key={i}><b>{m.from}:</b> {m.text}</p>
+              <p key={i}>
+                <b>{m.from}:</b> {m.text}
+              </p>
             ))}
           </div>
           <form
             onSubmit={(e) => {
               e.preventDefault();
               const text = e.target.msg.value;
-              sendMessage(chatCandidate.candidateEmail, text);
+              // Passa l'ID dell'offerta e l'email del candidato al sendMessage
+              sendMessage(job.id, chatCandidate.candidateEmail, text);
               e.target.reset();
             }}
           >
