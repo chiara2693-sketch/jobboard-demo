@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+
 import { MessageCircle, Phone } from "lucide-react";
 
 const API_URL = "https://jobboard-demo.onrender.com";
