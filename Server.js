@@ -19,12 +19,19 @@ db.serialize(() => {
     location TEXT,
     contract TEXT
   )`);
-
   db.run(`CREATE TABLE IF NOT EXISTS applications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     jobId INTEGER,
     candidateName TEXT,
     candidateEmail TEXT
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    jobId INTEGER,
+    senderEmail TEXT,
+    receiverEmail TEXT,
+    text TEXT,
+    timestamp TEXT DEFAULT CURRENT_TIMESTAMP
   )`);
 });
 
@@ -64,6 +71,31 @@ app.get("/applications/:jobId", (req, res) => {
   db.all(
     "SELECT * FROM applications WHERE jobId = ?",
     [req.params.jobId],
+    (err, rows) => {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json(rows);
+    }
+  );
+});
+
+// Message endpoints
+app.post("/messages", (req, res) => {
+  const { jobId, senderEmail, receiverEmail, text } = req.body;
+  db.run(
+    "INSERT INTO messages (jobId, senderEmail, receiverEmail, text) VALUES (?, ?, ?, ?)",
+    [jobId, senderEmail, receiverEmail, text],
+    function (err) {
+      if (err) return res.status(500).json({ error: err.message });
+      res.json({ id: this.lastID });
+    }
+  );
+});
+
+app.get("/messages/:jobId/:userEmail", (req, res) => {
+  const { jobId, userEmail } = req.params;
+  db.all(
+    "SELECT * FROM messages WHERE jobId = ? AND (senderEmail = ? OR receiverEmail = ?) ORDER BY timestamp ASC",
+    [jobId, userEmail, userEmail],
     (err, rows) => {
       if (err) return res.status(500).json({ error: err.message });
       res.json(rows);
